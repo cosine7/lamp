@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+dist/
+*.egg-info/
+# 用户配置和广播记录不进入仓库。
+config.json
+config.failed.json
+state.json
+service.json
+service.lock
+*.log
+captures/

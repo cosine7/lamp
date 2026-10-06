@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "personal-lamp"
+version = "0.1.0"
+description = "自用 Argrace 蓝牙吸顶灯的 CLI 和局域网 HTTP 控制工具"
+requires-python = ">=3.12"
+license-files = ["THIRD-PARTY-LICENSE.txt"]
+dependencies = [
+  "bleak>=3.0.2,<4; sys_platform == 'win32'",
+  "winrt-Windows.Devices.Bluetooth.Advertisement>=3.2.1,<4; sys_platform == 'win32'",
+]
+
+[project.scripts]
+lamp = "lamp.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lamp"]
+
+[dependency-groups]
+dev = ["ruff>=0.15,<1"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
