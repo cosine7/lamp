@@ -31,17 +31,6 @@ lamp status
 
 安装后可以在任意目录运行 `lamp`。编辑安装依赖源码目录；移动源码后，在新目录重新执行安装命令并加上 `--force`。修改 Python 源码后重启服务即可；修改依赖或命令入口后重新安装。
 
-使用 `--editable` 安装后，新增 CLI 子命令会在下次运行 `lamp` 时直接生效。例如本次新增的 `lamp homebridge export` 可以用 `lamp homebridge export --help` 检查；HTTP 服务代码有修改时再执行 `lamp restart`。无需手动构建安装包。
-
-需要重新安装或修复入口时，在日常使用的外部 PowerShell 中进入源码目录，执行：
-
-```powershell
-uv tool install --python 3.12 --editable . --force
-uv tool update-shell
-```
-
-如果安装后出现 `uv trampoline failed to canonicalize script path`，参见下面的[启动器错误排查](#启动器错误)。
-
 ## 首次配置
 
 可以学习遥控器信号，也可以手动导入已有配置。
@@ -90,7 +79,7 @@ lamp links
 请求体：留空即可
 ```
 
-接口供家庭局域网使用，能够访问电脑端口的设备可以发送控制请求。多网卡或 VPN 场景下，如果自动选择的地址不合适，可以在配置里设置 `server.advertise_host`，然后重启服务。
+接口供家庭局域网使用，能够访问电脑端口的设备可以发送控制请求。
 
 ## 接入苹果“家庭”（推荐）
 
@@ -98,13 +87,23 @@ lamp links
 
 控制流程：苹果“家庭” → Homebridge → lamp HTTP 服务 → 蓝牙广播 → 吸顶灯。
 
-已经在 Windows 上使用 Homebridge 2.4.0 和 homebridge-http-switch 0.5.36 完成扫码配对，用户现场确认能通过“家庭”关灯和开灯。
-
 ### 安装 Homebridge
 
 按 [Homebridge 的 Windows 安装说明](https://github.com/homebridge/homebridge/wiki/Install-Homebridge-on-Windows-10)安装 Node.js、Homebridge 和管理组件，并配置后台服务与开机自启动。
 
 安装完成后，在 Homebridge 管理界面中安装 `homebridge-http-switch` 插件。已有配对过的实例时，沿用原数据目录和配对信息，迁移说明见下文。
+
+### 配置 Homebridge 网络
+
+苹果“家庭”通过 mDNS 发现 Homebridge。电脑同时有 Wi-Fi、以太网或 VPN 虚拟网卡时，指定连接家庭局域网的接口，让发现广播通过该接口发出。
+
+Windows 多网卡环境建议在 Homebridge 管理界面的设置中：
+
+1. 在 **Network Interfaces（网络接口）** 中，只选择连接家庭局域网的实际网卡。Wi-Fi 网卡在 Windows 上常显示为 `WLAN`；使用有线连接时选择实际的以太网接口。
+2. 将 **mDNS Advertiser** 设为 **Ciao**。
+3. 保存并重启 Homebridge，保留现有桥接身份和配对信息，再通过“家庭”测试开关。
+
+更换网卡或连接方式后，更新所选接口。设置方法见 [Homebridge mDNS 与网络接口说明](https://github.com/homebridge/homebridge/wiki/mDNS-Options)。
 
 ### 导出吸顶灯配置
 
@@ -181,7 +180,7 @@ lamp 端口变化后，重新导出配置并更新原配件的两个 URL，再�
 
 ## iPhone 捷径（直接调用 HTTP）
 
-希望直接使用快捷指令时，可以创建两个捷径，调用同一套 HTTP 接口。
+希望直接使用快捷指令时，可以创建两个捷径，直接调用 lamp HTTP 接口。控制流程：iPhone 捷径 → lamp HTTP 服务 → 蓝牙广播 → 吸顶灯。
 
 在“快捷指令”App 中创建“房间开灯”，添加“获取 URL 内容”，粘贴 `lamp links` 显示的开灯地址，方法选择 **POST**，请求体留空。再创建“房间关灯”，使用关灯地址。
 
@@ -237,7 +236,7 @@ Windows 下默认存放于 `%LOCALAPPDATA%\lamp`，也可以通过环境变量 `
 }
 ```
 
-填入实际模板后保存，再执行 `lamp restart` 使配置生效。配置校验失败时，原服务继续运行；新配置通过校验但启动失败时，工具尝试恢复原配置和服务，将失败的新配置保存在 `config.failed.json`。
+填入实际模板后保存，再执行 `lamp restart` 使配置生效。工具先验证配置，校验失败时保留原服务。
 
 `state.json` 由服务维护，停止和重启后保留。配置导出只包含 `config.json`；备份或迁移发送计数时，还需保存 `state.json`。
 
@@ -253,53 +252,13 @@ Windows 下默认存放于 `%LOCALAPPDATA%\lamp`，也可以通过环境变量 `
 
 `/health` 是 HTTP 路径。命令行查询状态使用 `lamp status`。
 
-## 故障排查
-
-### 启动器错误
-
-`uv trampoline failed to canonicalize script path` 出现在 uv 命令启动器解析 Python 路径时。先在报错的 PowerShell 中检查入口和工具环境：
-
-```powershell
-Get-Command lamp -All | Select-Object -ExpandProperty Source
-uv tool dir
-```
-
-某些安装环境会将 AppData 路径重定向到独立的缓存目录。如果命令在安装时使用的环境中可以运行，但在日常终端中报错，可以在日常使用的 PowerShell 中进入源码目录，重新生成安装入口：
-
-```powershell
-uv tool install --python 3.12 --editable . --force
-uv tool update-shell
-```
-
-重新打开终端后执行 `lamp --version` 和 `lamp status`。
-
-如果重装后显示未配置或未运行，对比原安装和新安装使用的数据目录。配置也可能存放在应用缓存中；将两边的 `LAMP_HOME` 指向包含现有配置和计数的同一目录，或在停止原服务后迁移数据。已有模板可以继续使用。统一目录后执行 `lamp autostart on` 更新登录启动入口。
-
-### 手机连接失败
-
-电脑命令正常、手机访问超时时，用手机访问 `http://<host>:<port>/health`。检查路由器设备隔离，以及 Windows 防火墙是否允许工具安装环境的 Python 接收入站连接。
-
-返回 404 表示已到达服务；核对完整路径。开关接口使用 POST。
-
-### 蓝牙或学习失败
-
-检查电脑蓝牙是否打开、灯是否通电，以及适配器是否支持 BLE 广播。通过 `lamp status` 获取日志路径。
-
-学习超时时，先确认遥控器使用的协议和两个按键是否都已采集。已有配置可以继续保留，或使用 `config set`、`config import` 手动设置。
-
-## 开发与协议来源
-
-当前项目保持单设备的 lamp 工具，Homebridge 负责接入苹果“家庭”。引入第二种设备后，再评估使用 uv Workspace 将多个设备包和统一网关组织为 Monorepo。
-
-开发环境使用：
-
-```text
-uv sync
-uv run lamp --help
-uv run python -m unittest discover -s tests -v
-uv run ruff check .
-```
+## 协议来源
 
 协议算法改编自 [NicoIIT/ha-ble-adv 的 AgarceRemoteEncoder](https://github.com/NicoIIT/ha-ble-adv/blob/main/custom_components/ble_adv/codecs/agarce.py)，MIT 授权原文保存在 `THIRD-PARTY-LICENSE.txt`。开关指令和发送计数已通过实灯验证，其余参数沿用采集到的模板。
 
-开发约定位于 `AGENTS.md`。设置、学习和排查技能位于 `.agents/skills/lamp-setup/SKILL.md`。
+## 更多文档
+
+- [故障排查](.agents/skills/lamp-setup/references/troubleshooting.md)：启动器错误、手机连接、Homebridge 未响应与重启超时、蓝牙和配置问题。
+- [协议与手动配置](.agents/skills/lamp-setup/references/protocol.md)：模板格式、字段和发送计数。
+- [开发约定](AGENTS.md)：开发环境、实现约束和验证命令。
+- [设置与排查技能](.agents/skills/lamp-setup/SKILL.md)：供编程助手执行的配置和排查流程。
